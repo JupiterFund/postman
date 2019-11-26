@@ -1,0 +1,39 @@
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle GUI config
+gradle-app.setting
+
+# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
+!gradle-wrapper.jar
+
+# Cache of project
+.gradletasknamecache
+
+# Ignore Gradle build output directory
+build
+
+# Ignore Gradle properties
+gradle.properties
+
+# Ignore VS Code directory
+bin
+
+# Ignore VS Code settings
+.vscode
+
+# Ignore Eclipse settings
+.settings
+
+# Ignore Log folders
+logs
+log
+
+# Ignore Library files
+*.dll
+*.so
+!lib/**/*.dll
+!lib/**/*.so
+
+# Ignore CTP files
+*.con

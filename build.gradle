@@ -1,0 +1,106 @@
+import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
+
+plugins {
+  id 'java'
+  id 'application'
+  id 'org.springframework.boot' version '2.1.7.RELEASE'
+}
+
+apply plugin: 'java'
+apply plugin: 'io.spring.dependency-management'
+
+version = '0.1.0'
+compileJava.options.encoding = 'UTF-8' 
+compileTestJava.options.encoding = 'UTF-8'
+javadoc.options.encoding = 'UTF-8'
+
+allprojects {
+  repositories {
+    maven {
+      url "https://jitpack.io"
+    }
+  }
+}
+
+repositories {
+  mavenCentral()
+  jcenter()
+}
+
+dependencies {
+  implementation 'org.springframework.boot:spring-boot-starter'
+  // 使用Log4j2 + Sl4j
+  implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+  implementation 'org.springframework.kafka:spring-kafka:2.2.5.RELEASE'
+  implementation 'org.apache.commons:commons-csv:1.6'
+  // 异步日志
+  implementation 'com.lmax:disruptor:3.3.6'
+  // YAML配置文件
+  implementation 'com.fasterxml.jackson.core:jackson-databind'
+  implementation 'com.fasterxml.jackson.core:jackson-core'
+  implementation 'com.fasterxml.jackson.core:jackson-annotations'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
+  implementation 'com.github.ulisesbocchio:jasypt-spring-boot:2.1.2'
+  // 常用工具
+  implementation 'com.google.guava:guava:28.0-jre'
+  implementation 'joda-time:joda-time:2.10.4'
+  implementation "io.reactivex.rxjava2:rxjava:2.2.0"
+  implementation 'org.mapstruct:mapstruct:1.3.1.Final'
+  // 自动POJO生成
+  compileOnly 'org.projectlombok:lombok:1.18.8'
+  annotationProcessor 'org.projectlombok:lombok:1.18.8'
+  // Jupiter依赖
+  implementation 'com.github.JupiterFund:jupiter-commons:master-SNAPSHOT'
+  implementation 'com.github.JupiterFund:jupiterapis:master-SNAPSHOT'
+  implementation 'com.github.JupiterFund:tdfapi:v1.2.0:all'
+  implementation 'com.github.JupiterFund:qtsapi:v2.6.0:all'
+  implementation 'com.github.JupiterFund:ctpapi:v6.3.15:all'
+
+  // 测试依赖
+  testImplementation 'junit:junit:4.12'
+  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+configurations {
+  all {
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+  }
+}
+
+application {
+  mainClassName = 'com.nodeunify.jupiter.postman.App'
+}
+
+def os = new DefaultNativePlatform("current").operatingSystem
+def arch = new DefaultNativePlatform("current").architecture
+
+// 根据不同平台，复制不同版本的本地动态链接库
+task copy {
+  description 'Copy library based on OS profile'
+}
+
+task windows(type: Copy) {
+  description 'Show information about the operating system'
+  onlyIf { os.isWindows() && arch.getName() == "x86-64"}
+  from('lib/windows/x64')
+  into('.')
+  include('*.dll')
+  doLast {
+    println os
+    println arch
+  }
+  copy.dependsOn windows
+}
+
+task linux(type: Copy) {
+  description 'Show information about the operating system'
+  onlyIf { os.isLinux() && arch.getName() == "x64" }
+  from('lib/linux')
+  into('build/distributions')
+  include('*.so')
+  doLast {
+    println os
+    println arch
+  }
+  copy.dependsOn linux
+}
