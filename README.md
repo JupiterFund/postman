@@ -1,4 +1,7 @@
 # Postman
+
+[![Build Status](https://travis-ci.com/JupiterFund/postman.svg?branch=master)](https://travis-ci.com/JupiterFund/postman)
+
 Postman是JupiterFund团队自主开发的金融市场行情数据落地程序
 
 目前支持的上游数据接口有：
