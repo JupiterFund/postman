@@ -22,7 +22,7 @@ spring:
       stock-data: datasource.gta.stockdata
       transaction: datasource.gta.transaction
       future-data: datasource.ctp.futuredata
-      instrument: trader.ctp.instruments
+      instrument: trader.ctp.instrument
 app:
   connect:
     source:
