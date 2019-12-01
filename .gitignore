@@ -37,3 +37,7 @@ log
 
 # Ignore CTP files
 *.con
+
+# Ignore idea files
+.idea
+/build/
