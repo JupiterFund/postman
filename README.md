@@ -1,5 +1,6 @@
 # Postman
 
+[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/JupiterFund/postman) 
 [![Build Status](https://travis-ci.com/JupiterFund/postman.svg?branch=master)](https://travis-ci.com/JupiterFund/postman)
 
 Postman是JupiterFund团队自主开发的金融市场行情数据落地程序
