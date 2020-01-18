@@ -4,7 +4,7 @@ spring:
   main:
     web-application-type: none
   kafka:
-    bootstrap-servers: 127.0.0.1:9092
+    bootstrap-servers: ${BOOTSTRAP_SERVERS:127.0.0.1:9092}
     producer:
       retries: 0
       batch-size: 16384

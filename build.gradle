@@ -95,7 +95,7 @@ task windows(type: Copy) {
 
 task linux(type: Copy) {
   description 'Show information about the operating system'
-  onlyIf { os.isLinux() && arch.getName() == "x64" }
+  onlyIf { os.isLinux() && arch.getName() == "x86-64" }
   from('lib/linux')
   into('build/distributions')
   include('*.so')

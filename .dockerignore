@@ -1,0 +1,13 @@
+# IDE
+.gradle
+.vscode
+bin
+
+# Build Files
+build
+
+# Runtime Files
+logs
+*.so
+*.dll
+*.con
