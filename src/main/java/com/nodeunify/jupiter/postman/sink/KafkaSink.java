@@ -11,6 +11,7 @@ import com.nodeunify.jupiter.datastream.v1.Transaction;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -25,12 +26,16 @@ import lombok.extern.slf4j.Slf4j;
     matchIfMissing = false)
 public class KafkaSink implements ISink {
 
-    // TODO: 通过配置文件设置监听的Topic
-    private static final String KAFKA_TOPIC_STOCK_DATA = "datasource.gta.stockdata";
-    private static final String KAFKA_TOPIC_FUTURE_DATA = "test.prod.datasource.ctp.futuredata";
-    private static final String KAFKA_TOPIC_TRANSACTION = "datasource.gta.transaction";
-    private static final String KAFKA_TOPIC_ORDER = "datasource.gta.order";
-    private static final String KAFKA_TOPIC_OrderQueue = "datasource.gta.orderqueue";
+    @Value("${spring.kafka.topic.stock-data}")
+    private String KAFKA_TOPIC_STOCK_DATA;
+    @Value("${spring.kafka.topic.future-data}")
+    private String KAFKA_TOPIC_FUTURE_DATA;
+    @Value("${spring.kafka.topic.transaction}")
+    private String KAFKA_TOPIC_TRANSACTION;
+    // @Value("${spring.kafka.topic.order}")
+    // private String KAFKA_TOPIC_ORDER;
+    // @Value("${spring.kafka.topic.order-queue}")
+    // private String KAFKA_TOPIC_OrderQueue;
 
     @Autowired
     private KafkaTemplate<String, byte[]> kafkaTemplate;

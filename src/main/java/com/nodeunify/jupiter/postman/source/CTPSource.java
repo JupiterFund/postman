@@ -12,7 +12,6 @@ import com.nodeunify.jupiter.datastream.v1.FutureData;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
@@ -46,7 +45,6 @@ public class CTPSource implements ISource {
 
     private static final Logger latencyLogger = LoggerFactory.getLogger("LatencyLogger");
     private static final DateTimeFormatter printer = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    private static final DateTimeZone timezone = DateTimeZone.forID("Asia/Shanghai");
 
     private CThostFtdcMdApi mdApi;
     private MdSpiImpl mdSpiImpl;
@@ -140,10 +138,11 @@ public class CTPSource implements ISource {
 	    public void OnRtnDepthMarketData(CThostFtdcDepthMarketDataField pDepthMarketData) {
             if (pDepthMarketData != null) {
                 String code = pDepthMarketData.getInstrumentID();
+                String actionDay = pDepthMarketData.getActionDay();
                 DateTime genTime = printer.parseDateTime(pDepthMarketData.getUpdateTime() + "." + pDepthMarketData.getUpdateMillisec());
-                DateTime recvTime = DateTime.now().toDateTime(timezone);
+                DateTime recvTime = DateTime.now();
                 latencyLogger.trace("CTP FutureData", 
-                    "CTP", "FutureData", code, printer.print(genTime), printer.print(genTime), printer.print(recvTime));
+                    "CTP", "FutureData", code, actionDay, printer.print(genTime), printer.print(genTime), printer.print(recvTime));
                 // 问题: 数据转型时发生溢出错误
                 // 原因: SimNow全真环境返回的数据含有很多字段的值是9223372036854775807。
                 // 猜测SimNow将Long型的最大值作为字段double型字段的默认值。当jupiter-commons转换为Int型时发生错误。

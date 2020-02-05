@@ -43,7 +43,6 @@ import com.nodeunify.jupiter.commons.mapper.DatastreamMapper;
 import com.nodeunify.jupiter.datastream.v1.StockData;
 
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
@@ -57,7 +56,6 @@ public class GTACallback implements IGTAQTSCallbackExtension {
     // TODO: check DateTimeFormatter for hour value
     private static final DateTimeFormatter formatter = DateTimeFormat.forPattern("HHmmssSSS");
     private static final DateTimeFormatter printer = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    private static final DateTimeZone timezone = DateTimeZone.forID("Asia/Shanghai");
 
     private FlowableEmitter<GeneratedMessageV3> emitter;
 
@@ -212,12 +210,14 @@ public class GTACallback implements IGTAQTSCallbackExtension {
     public void OnSubscribe_SSEL2_Quotation(SSEL2_Quotation data) {
         // @formatter:off
         long time = data.Time % 1000000000;
+        // TODO: 测试
+        int actionDay = Integer.parseInt(("" + data.Time).substring(0, 8));
         DateTime genTime = formatter.parseDateTime(formatDateValue(String.valueOf(time)));
         DateTime serverTime = formatter.parseDateTime(formatDateValue(String.valueOf(data.LocalTimeStamp)));
-        DateTime recvTime = DateTime.now().toDateTime(timezone);
+        DateTime recvTime = DateTime.now();
         String code = byteArr2StringAndTrim(data.Symbol);
         latencyLogger.trace("GTA StockData", 
-            "GTA", "StockData", code, printer.print(genTime), printer.print(serverTime), printer.print(recvTime));
+            "GTA", "StockData", code, actionDay, printer.print(genTime), printer.print(serverTime), printer.print(recvTime));
         StockData stockData = DatastreamMapper.MAPPER.map(data);
         emitter.onNext(stockData);
         // @formatter:on
@@ -267,12 +267,14 @@ public class GTACallback implements IGTAQTSCallbackExtension {
     public void OnSubscribe_SZSEL2_Quotation(SZSEL2_Quotation data) {
         // @formatter:off
         long time = data.Time % 1000000000;
+        // TODO: 测试
+        int actionDay = Integer.parseInt(("" + data.Time).substring(0, 8));
         DateTime genTime = formatter.parseDateTime(formatDateValue(String.valueOf(time)));
         DateTime serverTime = formatter.parseDateTime(formatDateValue(String.valueOf(data.LocalTimeStamp)));
-        DateTime recvTime = DateTime.now().toDateTime(timezone);
+        DateTime recvTime = DateTime.now();
         String code = byteArr2StringAndTrim(data.Symbol);
         latencyLogger.trace("GTA StockData", 
-            "GTA", "StockData", code, printer.print(genTime), printer.print(serverTime), printer.print(recvTime));
+            "GTA", "StockData", code, actionDay, printer.print(genTime), printer.print(serverTime), printer.print(recvTime));
         StockData stockData = DatastreamMapper.MAPPER.map(data);
         emitter.onNext(stockData);
         // @formatter:on

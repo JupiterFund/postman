@@ -51,8 +51,9 @@ Visual Studio Code
   2. 打开下载的源代码目录
   3. 按需要调整.project，.classpath
   4. 为调试工具设置lauch.json，加入以下环境变量：
-      * JD_LIBRARY_PATH: `源码目录`
+      * LD_LIBRARY_PATH: `源码目录`
       * JASYPT_ENCRYPTOR_PASSWORD: `请向管理员询问密码，或自己修改配置`
+      * TZ: "Asia/Shanghai"
 
 Eclipse (TODO)
 

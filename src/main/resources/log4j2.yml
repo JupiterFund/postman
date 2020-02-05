@@ -22,7 +22,7 @@ Configuration:
         fileName: logs/latency-trace.csv
         filePattern: "logs/$${date:yyyy-MM}/latency-trace-%d{MM-dd-yyyy}-%i.csv.gz"
         CsvParameterLayout: 
-          header: "DataSource,DataType,DataCode,GenTime,ServerTime,RecvTime%n"
+          header: "DataSource,DataType,DataCode,ActionDay,GenTime,ServerTime,RecvTime%n"
           delimiter: ","
         Policies:
           SizeBasedTriggeringPolicy:

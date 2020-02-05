@@ -18,7 +18,6 @@ import com.nodeunify.jupiter.datastream.v1.StockData;
 import com.nodeunify.jupiter.datastream.v1.Transaction;
 
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -55,7 +54,6 @@ public class TDFSource implements ISource {
     private static final Logger latencyLogger = LoggerFactory.getLogger("LatencyLogger");
     private static final DateTimeFormatter formatter = DateTimeFormat.forPattern("HHmmssSSS");
     private static final DateTimeFormatter printer = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    private static final DateTimeZone timezone = DateTimeZone.forID("Asia/Shanghai");
 
     private boolean quitFlag;
     private TDFClient client;
@@ -123,10 +121,10 @@ public class TDFSource implements ISource {
                 case TDF_MSG_ID.MSG_DATA_MARKET:
                     TDF_MARKET_DATA tdfMarketData = tdfMsgData.getMarketData();
                     DateTime genTime = formatter.parseDateTime(formatDateValue(String.valueOf(tdfMarketData.getTime())));
-                    DateTime serverTime = formatter.parseDateTime(formatDateValue(String.valueOf(tdfMsg.getServerTime()))).withDate(LocalDate.now()).toDateTime(timezone);
-                    DateTime recvTime = DateTime.now().toDateTime(timezone);
+                    DateTime serverTime = formatter.parseDateTime(formatDateValue(String.valueOf(tdfMsg.getServerTime()))).withDate(LocalDate.now());
+                    DateTime recvTime = DateTime.now();
                     latencyLogger.trace("TDF StockData", 
-                    	"TDF", "StockData", tdfMarketData.getCode(), printer.print(genTime), printer.print(serverTime), printer.print(recvTime));
+                    	"TDF", "StockData", tdfMarketData.getCode(), tdfMarketData.getActionDay(), printer.print(genTime), printer.print(serverTime), printer.print(recvTime));
                     StockData stockData = DatastreamMapper.MAPPER.map(tdfMarketData);
                     return stockData;
                 case TDF_MSG_ID.MSG_DATA_ORDER:
