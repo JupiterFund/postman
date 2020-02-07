@@ -150,8 +150,15 @@ public class CTPSource implements ISource {
                 // 最终方法：在jupiter-commons中加入数据验证，或者为溢出错误设置默认值。
                 pDepthMarketData.setCurrDelta(0.0);
                 pDepthMarketData.setPreDelta(0.0);
-                FutureData futureData = DatastreamMapper.MAPPER.map(pDepthMarketData);
-                emitter.onNext(futureData);
+                try {
+                    FutureData futureData = DatastreamMapper.MAPPER.map(pDepthMarketData);
+                    emitter.onNext(futureData);
+                } catch (Exception e) {
+                    // Issue #2: Trace data shoule be logged by LatencyLogger, however not working
+                    // TODO: to be removed
+                    log.debug("Mapping error, {}, {}, {}", code, actionDay, genTime);
+                    log.error("Error while mapping market data", e);
+                }
             } else {
                 log.error("Returnd null market data");
             }
