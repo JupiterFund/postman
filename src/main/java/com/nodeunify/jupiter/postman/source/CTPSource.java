@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.style.ToStringCreator;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.stereotype.Service;
@@ -137,6 +138,7 @@ public class CTPSource implements ISource {
 
 	    public void OnRtnDepthMarketData(CThostFtdcDepthMarketDataField pDepthMarketData) {
             if (pDepthMarketData != null) {
+                trace(pDepthMarketData);
                 String code = pDepthMarketData.getInstrumentID();
                 String actionDay = pDepthMarketData.getActionDay();
                 DateTime genTime = printer.parseDateTime(pDepthMarketData.getUpdateTime() + "." + pDepthMarketData.getUpdateMillisec());
@@ -154,14 +156,62 @@ public class CTPSource implements ISource {
                     FutureData futureData = DatastreamMapper.MAPPER.map(pDepthMarketData);
                     emitter.onNext(futureData);
                 } catch (Exception e) {
-                    // Issue #2: Trace data shoule be logged by LatencyLogger, however not working
-                    // TODO: to be removed
-                    log.debug("Mapping error, {}, {}, {}", code, actionDay, genTime);
                     log.error("Error while mapping market data", e);
                 }
             } else {
                 log.error("Returnd null market data");
             }
+        }
+
+        private void trace(CThostFtdcDepthMarketDataField pDepthMarketData) {
+            // Issue #2: Trace data shoule be logged by LatencyLogger, however not working
+            String marketData = new ToStringCreator(pDepthMarketData)
+                .append("InstrumentID", pDepthMarketData.getInstrumentID())
+                .append("ExchangeID", pDepthMarketData.getExchangeID())
+                .append("ExchangeInstID", pDepthMarketData.getExchangeInstID())
+                .append("ActionDay", pDepthMarketData.getActionDay())
+                .append("TradingDay", pDepthMarketData.getTradingDay())
+                .append("UpdateTime", pDepthMarketData.getUpdateTime())
+                .append("UpdateMillisec", pDepthMarketData.getUpdateMillisec())
+                .append("LastPrice", pDepthMarketData.getLastPrice())
+                .append("OpenPrice", pDepthMarketData.getOpenPrice())
+                .append("ClosePrice", pDepthMarketData.getClosePrice())
+                .append("PreClosePrice", pDepthMarketData.getPreClosePrice())
+                .append("HighestPrice", pDepthMarketData.getHighestPrice())
+                .append("LowestPrice", pDepthMarketData.getLowestPrice())
+                .append("AveragePrice", pDepthMarketData.getAveragePrice())
+                .append("Turnover", pDepthMarketData.getTurnover())
+                .append("Volume", pDepthMarketData.getVolume())
+                .append("UpperLimitPrice", pDepthMarketData.getUpperLimitPrice())
+                .append("LowerLimitPrice", pDepthMarketData.getLowerLimitPrice())
+                .append("PreDelta", pDepthMarketData.getPreDelta())
+                .append("CurrDelta", pDepthMarketData.getCurrDelta())
+                .append("PreOpenInterest", pDepthMarketData.getPreOpenInterest())
+                .append("OpenInterest", pDepthMarketData.getOpenInterest())
+                .append("PreSettlementPrice", pDepthMarketData.getPreSettlementPrice())
+                .append("SettlementPrice", pDepthMarketData.getSettlementPrice())
+                .append("AskPrice1", pDepthMarketData.getAskPrice1())
+                .append("AskPrice2", pDepthMarketData.getAskPrice2())
+                .append("AskPrice3", pDepthMarketData.getAskPrice3())
+                .append("AskPrice4", pDepthMarketData.getAskPrice4())
+                .append("AskPrice5", pDepthMarketData.getAskPrice5())
+                .append("AskVolume1", pDepthMarketData.getAskVolume1())
+                .append("AskVolume2", pDepthMarketData.getAskVolume2())
+                .append("AskVolume3", pDepthMarketData.getAskVolume3())
+                .append("AskVolume4", pDepthMarketData.getAskVolume4())
+                .append("AskVolume5", pDepthMarketData.getAskVolume5())
+                .append("BidPrice1", pDepthMarketData.getBidPrice1())
+                .append("BidPrice2", pDepthMarketData.getBidPrice2())
+                .append("BidPrice3", pDepthMarketData.getBidPrice3())
+                .append("BidPrice4", pDepthMarketData.getBidPrice4())
+                .append("BidPrice5", pDepthMarketData.getBidPrice5())
+                .append("BidVolume1", pDepthMarketData.getBidVolume1())
+                .append("BidVolume2", pDepthMarketData.getBidVolume2())
+                .append("BidVolume3", pDepthMarketData.getBidVolume3())
+                .append("BidVolume4", pDepthMarketData.getBidVolume4())
+                .append("BidVolume5", pDepthMarketData.getBidVolume5())
+                .toString();
+            log.trace("marketData {}", marketData);
         }
     }
 }
