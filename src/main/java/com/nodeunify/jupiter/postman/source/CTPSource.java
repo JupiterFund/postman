@@ -6,6 +6,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.protobuf.GeneratedMessageV3;
 import com.nodeunify.jupiter.commons.mapper.DatastreamMapper;
 import com.nodeunify.jupiter.datastream.v1.FutureData;
@@ -137,32 +138,60 @@ public class CTPSource implements ISource {
         }
 
 	    public void OnRtnDepthMarketData(CThostFtdcDepthMarketDataField pDepthMarketData) {
-            if (pDepthMarketData != null) {
-                trace(pDepthMarketData);
-                String code = pDepthMarketData.getInstrumentID();
-                String actionDay = pDepthMarketData.getActionDay();
-                DateTime genTime = printer.parseDateTime(pDepthMarketData.getUpdateTime() + "." + pDepthMarketData.getUpdateMillisec());
-                DateTime recvTime = DateTime.now();
-                latencyLogger.trace("CTP FutureData", 
-                    "CTP", "FutureData", code, actionDay, printer.print(genTime), printer.print(genTime), printer.print(recvTime));
-                // 问题: 数据转型时发生溢出错误
-                // 原因: SimNow全真环境返回的数据含有很多字段的值是9223372036854775807。
-                // 猜测SimNow将Long型的最大值作为字段double型字段的默认值。当jupiter-commons转换为Int型时发生错误。
-                // 临时解决: 将CurrDelta和PreDelta两个Int型字段设置为0。产品环境也存在此问题。
-                // 最终方法：在jupiter-commons中加入数据验证，或者为溢出错误设置默认值。
-                pDepthMarketData.setCurrDelta(0.0);
-                pDepthMarketData.setPreDelta(0.0);
-                try {
-                    FutureData futureData = DatastreamMapper.MAPPER.map(pDepthMarketData);
-                    emitter.onNext(futureData);
-                } catch (Exception e) {
-                    log.error("Error while mapping market data", e);
-                }
+            if (pDepthMarketData == null) {
+                log.error("Received null market data");
             } else {
-                log.error("Returnd null market data");
+                trace(pDepthMarketData);
+                if (!validate(pDepthMarketData)) {
+                    log.warn("Received invalid market data");
+                } else {
+                    sanitize(pDepthMarketData);
+                    String code = pDepthMarketData.getInstrumentID();
+                    String actionDay = pDepthMarketData.getActionDay();
+                    DateTime genTime = printer.parseDateTime(pDepthMarketData.getUpdateTime() + "." + pDepthMarketData.getUpdateMillisec());
+                    DateTime recvTime = DateTime.now();
+                    latencyLogger.trace("CTP FutureData", 
+                        "CTP", "FutureData", code, actionDay, printer.print(genTime), printer.print(genTime), printer.print(recvTime));
+                    try {
+                        FutureData futureData = DatastreamMapper.MAPPER.map(pDepthMarketData);
+                        emitter.onNext(futureData);
+                    } catch (Exception e) {
+                        log.error("Error while mapping market data", e);
+                    }
+                }
             }
         }
 
+        /**
+         * 检查收到的原始数据，判断是否有效。
+         * @param pDepthMarketData
+         * @return boolean
+         */
+        private boolean validate(CThostFtdcDepthMarketDataField pDepthMarketData) {
+            if (Strings.isNullOrEmpty(pDepthMarketData.getActionDay())) {
+                return false;
+            }
+            return true;
+        }
+
+        /**
+         * 按需调整原始数据的部分字段，以满足后期进一步转换的需要。
+         * @param pDepthMarketData
+         */
+        private void sanitize(CThostFtdcDepthMarketDataField pDepthMarketData) {
+            // 问题: 数据转型时发生溢出错误
+            // 原因: SimNow全真环境返回的数据含有很多字段的值是9223372036854775807。
+            // 猜测SimNow将Long型的最大值作为字段double型字段的默认值。当jupiter-commons转换为Int型时发生错误。
+            // 临时解决: 将CurrDelta和PreDelta两个Int型字段设置为0。产品环境也存在此问题。
+            // 最终方法：在jupiter-commons中加入数据验证，或者为溢出错误设置默认值。
+            pDepthMarketData.setCurrDelta(0.0);
+            pDepthMarketData.setPreDelta(0.0);
+        }
+
+        /**
+         * 跟踪输出所有原始数据
+         * @param pDepthMarketData
+         */
         private void trace(CThostFtdcDepthMarketDataField pDepthMarketData) {
             // Issue #2: Trace data shoule be logged by LatencyLogger, however not working
             String marketData = new ToStringCreator(pDepthMarketData)

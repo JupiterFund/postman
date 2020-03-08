@@ -33,6 +33,7 @@ dependencies {
   // 使用Log4j2 + Sl4j
   implementation 'org.springframework.boot:spring-boot-starter-log4j2'
   implementation 'org.springframework.kafka:spring-kafka:2.2.5.RELEASE'
+  implementation 'org.influxdb:influxdb-java:2.15'
   implementation 'org.apache.commons:commons-csv:1.6'
   // 异步日志
   implementation 'com.lmax:disruptor:3.3.6'

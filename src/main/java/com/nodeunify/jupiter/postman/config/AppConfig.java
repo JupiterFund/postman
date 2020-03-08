@@ -64,6 +64,7 @@ public class AppConfig {
     public static class SinkConfig {
         private KafkaConfig kafka = new KafkaConfig();
         private RedisConfig redis = new RedisConfig();
+        private InfluxConfig influx = new InfluxConfig();
     }
 
     @Data
@@ -73,6 +74,11 @@ public class AppConfig {
 
     @Data
     public static class RedisConfig {
+        private boolean active;
+    }
+
+    @Data
+    public static class InfluxConfig {
         private boolean active;
     }
 

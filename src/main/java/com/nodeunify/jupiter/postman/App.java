@@ -3,6 +3,7 @@ package com.nodeunify.jupiter.postman;
 import com.nodeunify.jupiter.postman.config.AppConfig;
 import com.nodeunify.jupiter.postman.connector.DataConnector;
 import com.nodeunify.jupiter.postman.sink.ISink;
+import com.nodeunify.jupiter.postman.sink.InfluxSink;
 import com.nodeunify.jupiter.postman.sink.KafkaSink;
 import com.nodeunify.jupiter.postman.sink.RedisSink;
 import com.nodeunify.jupiter.postman.source.CTPSource;
@@ -37,6 +38,9 @@ public class App implements CommandLineRunner {
     @Autowired(required = false)
     RedisSink redisSink;
 
+    @Autowired(required = false)
+    InfluxSink influxSink;
+
     @Autowired
     AppConfig appConfig;
 
@@ -66,6 +70,8 @@ public class App implements CommandLineRunner {
             return kafkaSink;
         } else if ("redis".equals(out)) {
             return redisSink;
+        } else if ("influx".equals(out)) {
+            return influxSink;
         } else {
             throw new InvalidConfigurationPropertyValueException("app.connect.connector.out", out,
                     "Sink is not supported");
