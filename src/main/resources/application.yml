@@ -3,6 +3,14 @@ spring:
     active: dev
   main:
     web-application-type: none
+  influxdb:
+    url: http://influxdb:8086
+    user: ctp
+    password: ctp
+    quotation-db: ctp_quotation
+    batch:
+      actions: 1000
+      flush-duration: 500 # unit: ms
   kafka:
     bootstrap-servers: ${BOOTSTRAP_SERVERS:127.0.0.1:9092}
     producer:
