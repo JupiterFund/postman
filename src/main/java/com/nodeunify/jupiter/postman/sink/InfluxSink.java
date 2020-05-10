@@ -108,7 +108,7 @@ public class InfluxSink implements ISink {
     }
 
     private float priceConvert(long rowPrice) {
-        return rowPrice / 1000;
+        return (float) rowPrice / 1000;
     }
 
     private long ctpTimeConvert(int ctpDate, int ctpTime) {
