@@ -37,6 +37,10 @@ public class InfluxSink implements ISink {
     private String database;
     @Value("${spring.influxdb.rentention-policy:one_month}")
     private String retentionPolicy;
+    @Value("${spring.influxdb.batch.actions:}")
+    private int influxActions;
+    @Value("${spring.influxdb.batch.flush-duration:}")
+    private int influxFlushDuration;
 
     private InfluxDB influxDB;
 
@@ -45,6 +49,7 @@ public class InfluxSink implements ISink {
         influxDB = InfluxDBFactory.connect(url, user, password);
         try {
             influxDB.setDatabase(database);
+            influxDB.enableBatch(influxActions, influxFlushDuration, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             log.error("Exception during Influx DB initializing.", e);
         } finally {
@@ -93,9 +98,9 @@ public class InfluxSink implements ISink {
             .auctionQty(fd.getAuctionQty())
             .avgPrice(fd.getAvgPrice())
             .build();
-            String codePrefix = getCodePrefix(fd.getCode());
-            log.debug("Write point into InfluxDB. Measurement: {}", codePrefix);
-            // log.debug(fdm.toString());
+        String codePrefix = getCodePrefix(fd.getCode());
+        log.debug("Write point into InfluxDB. Measurement: {}", codePrefix);
+        // log.debug(fdm.toString());
         Point point = Point.measurement(codePrefix).addFieldsFromPOJO(fdm)
             .time(ctpLong, TimeUnit.MILLISECONDS)
             .build();
@@ -103,7 +108,7 @@ public class InfluxSink implements ISink {
     }
 
     private float priceConvert(long rowPrice) {
-        return rowPrice / 1000;
+        return (float) rowPrice / 1000;
     }
 
     private long ctpTimeConvert(int ctpDate, int ctpTime) {
@@ -120,10 +125,9 @@ public class InfluxSink implements ISink {
     private String getCodePrefix(String ctpCode) {
         Pattern rPrefix = Pattern.compile("^([a-zA-Z])+");
         Matcher mPrefix = rPrefix.matcher(ctpCode);
-        if(mPrefix.find()) {
+        if (mPrefix.find()) {
             return mPrefix.group(0);
-        }
-        else {
+        } else {
             return "others";
         }
     }
