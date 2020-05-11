@@ -3,6 +3,14 @@ spring:
     active: dev
   main:
     web-application-type: none
+  influxdb:
+    url: http://localhost:8086
+    user: ENC(rjT3tVxKTpp84myd6gCmTg==)
+    password: ENC(+Qvt91lTIsGu1iaL9cnJtg==)
+    quotation-db: ctp_quotation_test
+    batch:
+      actions: 1000
+      flush-duration: 500 # unit: ms
   kafka:
     bootstrap-servers: ${BOOTSTRAP_SERVERS:127.0.0.1:9092}
     producer:
@@ -19,10 +27,16 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     topic:
-      stock-data: datasource.gta.stockdata
-      transaction: datasource.gta.transaction
-      future-data: datasource.ctp.futuredata
-      instrument: trader.ctp.instrument
+      datasource:
+        stock-data: dev.datasource.stockdata
+        transaction: dev.datasource.transaction
+        future-data: dev.datasource.futuredata
+      trader:
+        ctp:
+          qry:
+            instrument: dev.trader.ctp.qry.instrument
+          rsp:
+            instrument: dev.trader.ctp.rsp.instrument
 app:
   connect:
     source:
@@ -59,12 +73,14 @@ app:
         username: ENC(o1EqFfMkGiQKWoPgIblxGw==)
         password: ENC(BTsBaRC4LOtyv5smSqrMapczj3aL9rPH)
         broker-id: 9999
-        subscriptions: au1912
+        subscriptions: i2009
     sink:
       kafka:
         active: false
       redis:
         active: true
+      influx:
+        active: false
     connector:
       - in: ctp
         out:
