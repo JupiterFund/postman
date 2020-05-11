@@ -26,15 +26,15 @@ import lombok.extern.slf4j.Slf4j;
     matchIfMissing = false)
 public class KafkaSink implements ISink {
 
-    @Value("${spring.kafka.topic.stock-data}")
+    @Value("${spring.kafka.topic.datasource.stock-data}")
     private String KAFKA_TOPIC_STOCK_DATA;
-    @Value("${spring.kafka.topic.future-data}")
+    @Value("${spring.kafka.topic.datasource.future-data}")
     private String KAFKA_TOPIC_FUTURE_DATA;
-    @Value("${spring.kafka.topic.transaction}")
+    @Value("${spring.kafka.topic.datasource.transaction}")
     private String KAFKA_TOPIC_TRANSACTION;
-    // @Value("${spring.kafka.topic.order}")
+    // @Value("${spring.kafka.topic.datasource.order}")
     // private String KAFKA_TOPIC_ORDER;
-    // @Value("${spring.kafka.topic.order-queue}")
+    // @Value("${spring.kafka.topic.datasource.order-queue}")
     // private String KAFKA_TOPIC_OrderQueue;
 
     @Autowired

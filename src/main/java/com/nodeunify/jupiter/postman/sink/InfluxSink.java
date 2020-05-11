@@ -24,7 +24,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(value = "app.connect.sink.influx.active", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(
+    value = "app.connect.sink.influx.active", 
+    havingValue = "true", 
+    matchIfMissing = false)
 public class InfluxSink implements ISink {
 
     @Value("${spring.influxdb.url:}")
@@ -66,7 +69,6 @@ public class InfluxSink implements ISink {
 
     @Override
     public void accept(GeneratedMessageV3 message) throws Exception {
-        log.debug("Quotation {}", message);
         if (message instanceof FutureData) {
             FutureData fd = (FutureData) message;
             Point point = build(fd);
@@ -79,6 +81,7 @@ public class InfluxSink implements ISink {
         Long ctpLong = ctpTimeConvert(fd.getDate(), fd.getTime());
         int timeDelta = (int) (currentLong - ctpLong);
         // log.debug("{} - {} -- differ: {}", currentLong, ctpLong, timeDelta);
+        // TODO: move mapping logic into jupiter-commons
         FutureDataMeasurement fdm = FutureDataMeasurement.builder()
             .code(fd.getCode()).market(String.valueOf(fd.getMarketValue())).ctpDate(fd.getDate())
             .ctpTime(fd.getTime()).timeDelta(timeDelta)

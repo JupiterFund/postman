@@ -1,17 +1,23 @@
 package com.nodeunify.jupiter.postman.source;
 
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.collect.Sets;
 import com.google.protobuf.GeneratedMessageV3;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.nodeunify.jupiter.commons.mapper.DatastreamMapper;
 import com.nodeunify.jupiter.datastream.v1.FutureData;
+import com.nodeunify.jupiter.trader.ctp.v1.Instrument;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -23,6 +29,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.style.ToStringCreator;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import ctp.thostmduserapi.CThostFtdcDepthMarketDataField;
@@ -39,20 +46,24 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(
-    value = "app.connect.source.ctp.active", 
-    havingValue = "true", 
-    matchIfMissing = false)
+@ConditionalOnProperty(value = "app.connect.source.ctp.active", havingValue = "true", matchIfMissing = false)
 public class CTPSource implements ISource {
 
     private static final Logger latencyLogger = LoggerFactory.getLogger("LatencyLogger");
     private static final DateTimeFormatter printer = DateTimeFormat.forPattern("HH:mm:ss.SSS");
+    private Set<String> queryUUIDs = Sets.newConcurrentHashSet();
 
     private CThostFtdcMdApi mdApi;
     private MdSpiImpl mdSpiImpl;
 
     @Autowired
+    private KafkaTemplate<String, byte[]> kafkaTemplate;
+    @Autowired
     private KafkaListenerEndpointRegistry registry;
+    @Value("${spring.kafka.topic.trader.ctp.qry.instrument}")
+    private String KAFKA_TOPIC_QUERY_INSTRUMENT;
+    @Value("${spring.kafka.topic.trader.ctp.rsp.instrument}")
+    private String KAFKA_TOPIC_RESPONSE_INSTRUMENT;
     @Value("#{'tcp://' + '${app.connect.source.ctp.ip}' + ':' + '${app.connect.source.ctp.port}'}")
     private String ctpMdAddress;
     @Value("${app.connect.source.ctp.broker-id}")
@@ -63,20 +74,20 @@ public class CTPSource implements ISource {
     private String password;
     @Value("${app.connect.source.ctp.subscriptions:}#{T(java.util.Collections).emptyList()}")
     private List<String> subscriptions;
-    
-    static{
-		System.loadLibrary("thostmduserapi_se");
-		System.loadLibrary("thostmduserapi_wrap");
-	}
+
+    static {
+        System.loadLibrary("thostmduserapi_se");
+        System.loadLibrary("thostmduserapi_wrap");
+    }
 
     @PostConstruct
     public void postConstruct() {
         mdApi = CThostFtdcMdApi.CreateFtdcMdApi();
         mdSpiImpl = new MdSpiImpl();
         mdApi.RegisterSpi(mdSpiImpl);
-		mdApi.RegisterFront(ctpMdAddress);
+        mdApi.RegisterFront(ctpMdAddress);
     }
-    
+
     @PreDestroy
     public void preDestroy() {
         mdApi.Release();
@@ -92,14 +103,22 @@ public class CTPSource implements ISource {
         return flowable.subscribeOn(Schedulers.io()).publish().autoConnect().observeOn(Schedulers.io());
     }
 
-    @KafkaListener(id = "instrumentListener", topics = "${spring.kafka.topic.instrument}", autoStartup = "false")
-    public void listen(ConsumerRecord<String, String> record) {
-        Optional<String> recordOptional = Optional.fromNullable(record.value());
+    @KafkaListener(id = "instrumentListener", topics = "${spring.kafka.topic.trader.ctp.rsp.instrument}", autoStartup = "false")
+    public void listen(ConsumerRecord<String, byte[]> record) {
+        Optional<byte[]> recordOptional = Optional.fromNullable(record.value());
         if (recordOptional.isPresent()) {
-            log.debug("Instrument record: {}", recordOptional.get());
-            String[] instrumentIDs = new String[] {recordOptional.get()};
-            // Subscribe all market based on the existing instruments from trader service
-            mdApi.SubscribeMarketData(instrumentIDs, 1);
+            try {
+                Instrument instrument = Instrument.parseFrom(recordOptional.get());
+                if (queryUUIDs.contains(instrument.getUUID())) {
+                    String instrumentID = instrument.getInstrumentID();
+                    log.debug("Instrument record: {}", instrumentID);
+                    String[] instrumentIDs = new String[] { instrumentID };
+                    // Subscribe all market based on the existing instruments from trader service
+                    mdApi.SubscribeMarketData(instrumentIDs, 1);
+                }
+            } catch (InvalidProtocolBufferException e) {
+                log.error("Error while parsing instrument message", e);
+            }
         }
     }
 
@@ -131,6 +150,15 @@ public class CTPSource implements ISource {
             if (subscriptions.isEmpty()) {
                 log.debug("Start instrumentListener");
                 registry.getListenerContainer("instrumentListener").start();
+                log.debug("Send instrument query to CTP trader");
+                String uuid = UUID.randomUUID().toString();
+                queryUUIDs.add(uuid);
+                Instrument instrument = Instrument
+                    .newBuilder()
+                    .setUUID(uuid)
+                    .setExchangeID("")
+                    .build();
+                kafkaTemplate.send(new ProducerRecord<String, byte[]>(KAFKA_TOPIC_QUERY_INSTRUMENT, instrument.toByteArray()));
             } else {
                 // Subscribe given instruments
                 mdApi.SubscribeMarketData(subscriptions.stream().toArray(String[]::new), 1);
@@ -193,7 +221,6 @@ public class CTPSource implements ISource {
          * @param pDepthMarketData
          */
         private void trace(CThostFtdcDepthMarketDataField pDepthMarketData) {
-            // Issue #2: Trace data shoule be logged by LatencyLogger, however not working
             String marketData = new ToStringCreator(pDepthMarketData)
                 .append("InstrumentID", pDepthMarketData.getInstrumentID())
                 .append("ExchangeID", pDepthMarketData.getExchangeID())
