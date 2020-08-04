@@ -1,5 +1,6 @@
 package com.nodeunify.jupiter.postman.source;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -9,6 +10,7 @@ import javax.annotation.PreDestroy;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.protobuf.GeneratedMessageV3;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -51,7 +53,9 @@ public class CTPSource implements ISource {
 
     private static final Logger latencyLogger = LoggerFactory.getLogger("LatencyLogger");
     private static final DateTimeFormatter printer = DateTimeFormat.forPattern("HH:mm:ss.SSS");
+    private static final DateTimeFormatter parser = DateTimeFormat.forPattern("HH:mm");
     private Set<String> queryUUIDs = Sets.newConcurrentHashSet();
+    private List<Range<Integer>> timeRanges = new ArrayList<>();
 
     private CThostFtdcMdApi mdApi;
     private MdSpiImpl mdSpiImpl;
@@ -74,6 +78,8 @@ public class CTPSource implements ISource {
     private String password;
     @Value("${app.connect.source.ctp.subscriptions:}#{T(java.util.Collections).emptyList()}")
     private List<String> subscriptions;
+    @Value("${app.connect.source.ctp.trading-hours:}#{T(java.util.Collections).emptyList()}")
+    private List<String> tradingHours;
 
     static {
         System.loadLibrary("thostmduserapi_se");
@@ -147,6 +153,7 @@ public class CTPSource implements ISource {
             if (pRspInfo != null) {
                 log.debug("OnRspUserLogin, ErrorMsg {}", pRspInfo.getErrorMsg());
             }
+            parseTimeRanges();
             if (subscriptions.isEmpty()) {
                 log.debug("Start instrumentListener");
                 registry.getListenerContainer("instrumentListener").start();
@@ -178,16 +185,76 @@ public class CTPSource implements ISource {
                     String actionDay = pDepthMarketData.getActionDay();
                     DateTime genTime = printer.parseDateTime(pDepthMarketData.getUpdateTime() + "." + pDepthMarketData.getUpdateMillisec());
                     DateTime recvTime = DateTime.now();
-                    latencyLogger.trace("CTP FutureData", 
-                        "CTP", "FutureData", code, actionDay, printer.print(genTime), printer.print(genTime), printer.print(recvTime));
-                    try {
-                        FutureData futureData = DatastreamMapper.MAPPER.map(pDepthMarketData);
-                        emitter.onNext(futureData);
-                    } catch (Exception e) {
-                        log.error("Error while mapping market data", e);
+                    if (isMarketOpen(genTime)) {
+                        try {
+                            latencyLogger.trace("CTP FutureData", "CTP", "FutureData", code, actionDay, 
+                                    printer.print(genTime), printer.print(genTime), printer.print(recvTime));
+                            FutureData futureData = DatastreamMapper.MAPPER.map(pDepthMarketData);
+                            emitter.onNext(futureData);
+                        } catch (Exception e) {
+                            log.error("Error while mapping market data", e);
+                        }
+                    } else {
+                        log.warn("Market is still closed");
                     }
                 }
             }
+        }
+
+        /**
+         * 解析盘中时段
+         */
+        private void parseTimeRanges() {
+            for (String tradingHour : tradingHours) {
+                if (tradingHour.contains("-")) {
+                    String[] parts = tradingHour.split("-");
+                    DateTime startTime = DateTime.parse(parts[0], parser);
+                    DateTime endTime = DateTime.parse(parts[1], parser);
+                    if (startTime.isAfter(endTime)) {
+                        // 夜盘跨日时间段
+                        timeRanges.add(Range.atLeast(startTime.getMillisOfDay()));
+                        timeRanges.add(Range.lessThan(endTime.getMillisOfDay()));
+                    } else {
+                        timeRanges.add(Range.closedOpen(startTime.getMillisOfDay(), endTime.getMillisOfDay()));
+                    }
+                }
+            }
+            log.debug("Time ranges: {}", timeRanges);
+
+            // 另一种解析方式，早期代码
+            // timeRanges = tradingHours.stream()
+            //     .filter(tradingHour -> tradingHour.contains("-"))
+            //     .map(tradingHour -> {
+            //         String[] parts = tradingHour.split("-");
+            //         DateTime startTime = DateTime.parse(parts[0], parser).withDate(LocalDate.now());
+            //         DateTime endTime = DateTime.parse(parts[1], parser).withDate(LocalDate.now());
+            //         if (startTime.isAfter(endTime)) {
+            //             endTime = endTime.plusDays(1);
+            //         }
+            //         log.debug("Trading hours of market: {}, {}", startTime, endTime);
+            //         return Range.openClosed(startTime.getMillis(), endTime.getMillis());
+            //     })
+            //     .collect(Collectors.toList());
+        }
+
+        /**
+         * 判断是否属于盘中时段。如果未定义具体时段，则默认为正常开盘时段。常用于
+         * 测试开发环境。如果已定义具体时段，则只在指定时间段内接收数据。
+         * 
+         * 可根据需要定义多个时间段，例如早盘，夜盘。多个时间段之间以逗号分隔。
+         * 时间段定义格式可参照:
+         * {起始时间 - 截至时间},{起始时间 - 截至时间}, ...
+         * 
+         * @param dateTime
+         * @return boolean
+         */
+        private boolean isMarketOpen(DateTime dateTime) {
+            return timeRanges.size() == 0 ? 
+                true : 
+                timeRanges.stream()
+                    .filter(timeRange -> timeRange.contains(dateTime.getMillisOfDay()))
+                    .findAny()
+                    .isPresent();
         }
 
         /**

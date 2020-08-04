@@ -15,7 +15,7 @@ RUN gradle build copy bootJar --no-daemon
 
 FROM $base_image
 
-ARG postman_version=0.3.0
+ARG postman_version=0.3.1
 
 ENV LD_LIBRARY_PATH /app
 ENV JASYPT_ENCRYPTOR_PASSWORD default
