@@ -1,18 +1,9 @@
 package com.nodeunify.jupiter.postman.sink;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-
 import com.google.protobuf.GeneratedMessageV3;
 import com.nodeunify.jupiter.datastream.v1.FutureData;
 import com.nodeunify.jupiter.postman.dto.influxdb.FutureDataMeasurement;
-
+import lombok.extern.slf4j.Slf4j;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Point;
@@ -20,13 +11,20 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
-import lombok.extern.slf4j.Slf4j;
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Calendar;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 @ConditionalOnProperty(
-    value = "app.connect.sink.influx.active", 
-    havingValue = "true", 
+    value = "app.connect.sink.influx.active",
+    havingValue = "true",
     matchIfMissing = false)
 public class InfluxSink implements ISink {
 
@@ -79,6 +77,7 @@ public class InfluxSink implements ISink {
     private Point build(FutureData fd) {
         Long currentLong = LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli();
         Long ctpLong = ctpTimeConvert(fd.getDate(), fd.getTime());
+        long ctpRecLong = ctpRecordTimeConvert(fd.getTime());
         int timeDelta = (int) (currentLong - ctpLong);
         // log.debug("{} - {} -- differ: {}", currentLong, ctpLong, timeDelta);
         // TODO: move mapping logic into jupiter-commons
@@ -105,7 +104,7 @@ public class InfluxSink implements ISink {
         log.debug("Write point into InfluxDB. Measurement: {}", codePrefix);
         // log.debug(fdm.toString());
         Point point = Point.measurement(codePrefix).addFieldsFromPOJO(fdm)
-            .time(ctpLong, TimeUnit.MILLISECONDS)
+            .time(ctpRecLong, TimeUnit.MILLISECONDS)
             .build();
         return point;
     }
@@ -118,6 +117,21 @@ public class InfluxSink implements ISink {
         int ctpYear = ctpDate / 10000;
         int ctpMonth = (ctpDate % 10000) / 100;
         int ctpDay = ctpDate % 100;
+
+        int ctpHour = ctpTime / 10000_000;
+        int ctpMinute = (ctpTime % 10000_000) / 100_000;
+        int ctpSecond = (ctpTime % 100_000) / 1000;
+        int ctpNano = (ctpTime % 1000) * 1000_000;
+        return LocalDateTime.of(ctpYear, ctpMonth, ctpDay, ctpHour, ctpMinute, ctpSecond, ctpNano).toInstant(ZoneOffset.of("+8")).toEpochMilli();
+    }
+
+    private long ctpRecordTimeConvert(int ctpTime) {
+        // use system date instead
+        Calendar cal = Calendar.getInstance();
+        int ctpYear = cal.get(Calendar.YEAR);
+        int ctpMonth = cal.get(Calendar.MONTH) + 1;
+        int ctpDay = cal.get(Calendar.DAY_OF_MONTH);
+
         int ctpHour = ctpTime / 10000_000;
         int ctpMinute = (ctpTime % 10000_000) / 100_000;
         int ctpSecond = (ctpTime % 100_000) / 1000;
