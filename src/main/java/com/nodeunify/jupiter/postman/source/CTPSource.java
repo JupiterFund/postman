@@ -118,9 +118,9 @@ public class CTPSource implements ISource {
                 if (queryUUIDs.contains(instrument.getUUID())) {
                     String instrumentID = instrument.getInstrumentID();
                     log.debug("Instrument record: {}", instrumentID);
-                    String[] instrumentIDs = new String[] { instrumentID };
+                    String[] subscription = new String[] { instrumentID };
                     // Subscribe all market based on the existing instruments from trader service
-                    mdApi.SubscribeMarketData(instrumentIDs, 1);
+                    mdApi.SubscribeMarketData(subscription, 1);
                 }
             } catch (InvalidProtocolBufferException e) {
                 log.error("Error while parsing instrument message", e);
@@ -168,7 +168,11 @@ public class CTPSource implements ISource {
                 kafkaTemplate.send(new ProducerRecord<String, byte[]>(KAFKA_TOPIC_QUERY_INSTRUMENT, instrument.toByteArray()));
             } else {
                 // Subscribe given instruments
-                mdApi.SubscribeMarketData(subscriptions.stream().toArray(String[]::new), 1);
+                // Subscription is only successful one by one for single instrument
+                subscriptions.parallelStream().forEach((instrumentID) -> {
+                    String[] subscription = new String[] { instrumentID };
+                    mdApi.SubscribeMarketData(subscription, 1);
+                });
             }
         }
 
