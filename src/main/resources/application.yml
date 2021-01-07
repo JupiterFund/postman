@@ -67,8 +67,14 @@ app:
         password: ENC(gGD9E8dBsK0AzCzbfDgPdg==)
         markets: SH-1-0;SZ-1-0
       ctp:
-        ip: 180.168.146.187
-        port: 10131
+        # Simnow 实盘环境
+        # md-front: >
+        #   tcp://180.168.146.187:10110,
+        #   tcp://180.168.146.187:10111,
+        #   tcp://218.202.237.33:10112
+        # Simnow 7x24环境
+        md-front: >
+          tcp://180.168.146.187:10131
         active: true
         username: ENC(o1EqFfMkGiQKWoPgIblxGw==)
         password: ENC(BTsBaRC4LOtyv5smSqrMapczj3aL9rPH)

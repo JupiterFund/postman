@@ -68,8 +68,8 @@ public class CTPSource implements ISource {
     private String KAFKA_TOPIC_QUERY_INSTRUMENT;
     @Value("${spring.kafka.topic.trader.ctp.rsp.instrument}")
     private String KAFKA_TOPIC_RESPONSE_INSTRUMENT;
-    @Value("#{'tcp://' + '${app.connect.source.ctp.ip}' + ':' + '${app.connect.source.ctp.port}'}")
-    private String ctpMdAddress;
+    @Value("${app.connect.source.ctp.md-front:}#{T(java.util.Collections).emptyList()}")
+    private List<String> ctpMdAddressList;
     @Value("${app.connect.source.ctp.broker-id}")
     private String brokerId;
     @Value("${app.connect.source.ctp.username}")
@@ -91,7 +91,7 @@ public class CTPSource implements ISource {
         mdApi = CThostFtdcMdApi.CreateFtdcMdApi();
         mdSpiImpl = new MdSpiImpl();
         mdApi.RegisterSpi(mdSpiImpl);
-        mdApi.RegisterFront(ctpMdAddress);
+        ctpMdAddressList.forEach(ctpMdAddress -> mdApi.RegisterFront(ctpMdAddress));
     }
 
     @PreDestroy
