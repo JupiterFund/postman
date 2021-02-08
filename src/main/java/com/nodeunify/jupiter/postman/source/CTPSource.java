@@ -136,6 +136,7 @@ public class CTPSource implements ISource {
             this.emitter = emitter;
         }
 
+        @Override
         public void OnFrontConnected() {
             log.debug("On Front Connected");
             CThostFtdcReqUserLoginField field = new CThostFtdcReqUserLoginField();
@@ -145,8 +146,23 @@ public class CTPSource implements ISource {
             mdApi.ReqUserLogin(field, 0);
         }
 
+        @Override
+        public void OnFrontDisconnected(int nReason) {
+            log.debug("On Front Disconnected: {}", nReason);
+        }
+
+        @Override
+        public void OnHeartBeatWarning(int nTimeLapse) {
+            log.debug("On Heart Beat Warning: {}", nTimeLapse);
+        }
+
+        @Override
+        public void OnRspError(CThostFtdcRspInfoField pRspInfo, int nRequestID, boolean bIsLast) {
+            log.error("On Response Error: {}, {}", nRequestID, bIsLast);
+        }
+
         public void OnRspUserLogin(CThostFtdcRspUserLoginField pRspUserLogin, CThostFtdcRspInfoField pRspInfo,
-			int nRequestID, boolean bIsLast) {
+                int nRequestID, boolean bIsLast) {
             if (pRspUserLogin != null) {
                 log.debug("Brokerid {}", pRspUserLogin.getBrokerID());
             }
@@ -160,12 +176,9 @@ public class CTPSource implements ISource {
                 log.debug("Send instrument query to CTP trader");
                 String uuid = UUID.randomUUID().toString();
                 queryUUIDs.add(uuid);
-                Instrument instrument = Instrument
-                    .newBuilder()
-                    .setUUID(uuid)
-                    .setExchangeID("")
-                    .build();
-                kafkaTemplate.send(new ProducerRecord<String, byte[]>(KAFKA_TOPIC_QUERY_INSTRUMENT, instrument.toByteArray()));
+                Instrument instrument = Instrument.newBuilder().setUUID(uuid).setExchangeID("").build();
+                kafkaTemplate.send(
+                        new ProducerRecord<String, byte[]>(KAFKA_TOPIC_QUERY_INSTRUMENT, instrument.toByteArray()));
             } else {
                 // Subscribe given instruments
                 // Subscription is only successful one by one for single instrument
@@ -176,7 +189,7 @@ public class CTPSource implements ISource {
             }
         }
 
-	    public void OnRtnDepthMarketData(CThostFtdcDepthMarketDataField pDepthMarketData) {
+        public void OnRtnDepthMarketData(CThostFtdcDepthMarketDataField pDepthMarketData) {
             if (pDepthMarketData == null) {
                 log.error("Received null market data");
             } else {
@@ -187,11 +200,12 @@ public class CTPSource implements ISource {
                     sanitize(pDepthMarketData);
                     String code = pDepthMarketData.getInstrumentID();
                     String actionDay = pDepthMarketData.getActionDay();
-                    DateTime genTime = printer.parseDateTime(pDepthMarketData.getUpdateTime() + "." + pDepthMarketData.getUpdateMillisec());
+                    DateTime genTime = printer.parseDateTime(
+                            pDepthMarketData.getUpdateTime() + "." + pDepthMarketData.getUpdateMillisec());
                     DateTime recvTime = DateTime.now();
                     if (isMarketOpen(genTime)) {
                         try {
-                            latencyLogger.trace("CTP FutureData", "CTP", "FutureData", code, actionDay, 
+                            latencyLogger.trace("CTP FutureData", "CTP", "FutureData", code, actionDay,
                                     printer.print(genTime), printer.print(genTime), printer.print(recvTime));
                             FutureData futureData = DatastreamMapper.MAPPER.map(pDepthMarketData);
                             emitter.onNext(futureData);
@@ -227,42 +241,40 @@ public class CTPSource implements ISource {
 
             // 另一种解析方式，早期代码
             // timeRanges = tradingHours.stream()
-            //     .filter(tradingHour -> tradingHour.contains("-"))
-            //     .map(tradingHour -> {
-            //         String[] parts = tradingHour.split("-");
-            //         DateTime startTime = DateTime.parse(parts[0], parser).withDate(LocalDate.now());
-            //         DateTime endTime = DateTime.parse(parts[1], parser).withDate(LocalDate.now());
-            //         if (startTime.isAfter(endTime)) {
-            //             endTime = endTime.plusDays(1);
-            //         }
-            //         log.debug("Trading hours of market: {}, {}", startTime, endTime);
-            //         return Range.openClosed(startTime.getMillis(), endTime.getMillis());
-            //     })
-            //     .collect(Collectors.toList());
+            // .filter(tradingHour -> tradingHour.contains("-"))
+            // .map(tradingHour -> {
+            // String[] parts = tradingHour.split("-");
+            // DateTime startTime = DateTime.parse(parts[0],
+            // parser).withDate(LocalDate.now());
+            // DateTime endTime = DateTime.parse(parts[1],
+            // parser).withDate(LocalDate.now());
+            // if (startTime.isAfter(endTime)) {
+            // endTime = endTime.plusDays(1);
+            // }
+            // log.debug("Trading hours of market: {}, {}", startTime, endTime);
+            // return Range.openClosed(startTime.getMillis(), endTime.getMillis());
+            // })
+            // .collect(Collectors.toList());
         }
 
         /**
-         * 判断是否属于盘中时段。如果未定义具体时段，则默认为正常开盘时段。常用于
-         * 测试开发环境。如果已定义具体时段，则只在指定时间段内接收数据。
+         * 判断是否属于盘中时段。如果未定义具体时段，则默认为正常开盘时段。常用于 测试开发环境。如果已定义具体时段，则只在指定时间段内接收数据。
          * 
-         * 可根据需要定义多个时间段，例如早盘，夜盘。多个时间段之间以逗号分隔。
-         * 时间段定义格式可参照:
-         * {起始时间 - 截至时间},{起始时间 - 截至时间}, ...
+         * 可根据需要定义多个时间段，例如早盘，夜盘。多个时间段之间以逗号分隔。 时间段定义格式可参照: {起始时间 - 截至时间},{起始时间 - 截至时间},
+         * ...
          * 
          * @param dateTime
          * @return boolean
          */
         private boolean isMarketOpen(DateTime dateTime) {
-            return timeRanges.size() == 0 ? 
-                true : 
-                timeRanges.stream()
-                    .filter(timeRange -> timeRange.contains(dateTime.getMillisOfDay()))
-                    .findAny()
-                    .isPresent();
+            return timeRanges.size() == 0 ? true
+                    : timeRanges.stream().filter(timeRange -> timeRange.contains(dateTime.getMillisOfDay())).findAny()
+                            .isPresent();
         }
 
         /**
          * 检查收到的原始数据，判断是否有效。
+         * 
          * @param pDepthMarketData
          * @return boolean
          */
@@ -275,6 +287,7 @@ public class CTPSource implements ISource {
 
         /**
          * 按需调整原始数据的部分字段，以满足后期进一步转换的需要。
+         * 
          * @param pDepthMarketData
          */
         private void sanitize(CThostFtdcDepthMarketDataField pDepthMarketData) {
@@ -289,55 +302,54 @@ public class CTPSource implements ISource {
 
         /**
          * 跟踪输出所有原始数据
+         * 
          * @param pDepthMarketData
          */
         private void trace(CThostFtdcDepthMarketDataField pDepthMarketData) {
             String marketData = new ToStringCreator(pDepthMarketData)
-                .append("InstrumentID", pDepthMarketData.getInstrumentID())
-                .append("ExchangeID", pDepthMarketData.getExchangeID())
-                .append("ExchangeInstID", pDepthMarketData.getExchangeInstID())
-                .append("ActionDay", pDepthMarketData.getActionDay())
-                .append("TradingDay", pDepthMarketData.getTradingDay())
-                .append("UpdateTime", pDepthMarketData.getUpdateTime())
-                .append("UpdateMillisec", pDepthMarketData.getUpdateMillisec())
-                .append("LastPrice", pDepthMarketData.getLastPrice())
-                .append("OpenPrice", pDepthMarketData.getOpenPrice())
-                .append("ClosePrice", pDepthMarketData.getClosePrice())
-                .append("PreClosePrice", pDepthMarketData.getPreClosePrice())
-                .append("HighestPrice", pDepthMarketData.getHighestPrice())
-                .append("LowestPrice", pDepthMarketData.getLowestPrice())
-                .append("AveragePrice", pDepthMarketData.getAveragePrice())
-                .append("Turnover", pDepthMarketData.getTurnover())
-                .append("Volume", pDepthMarketData.getVolume())
-                .append("UpperLimitPrice", pDepthMarketData.getUpperLimitPrice())
-                .append("LowerLimitPrice", pDepthMarketData.getLowerLimitPrice())
-                .append("PreDelta", pDepthMarketData.getPreDelta())
-                .append("CurrDelta", pDepthMarketData.getCurrDelta())
-                .append("PreOpenInterest", pDepthMarketData.getPreOpenInterest())
-                .append("OpenInterest", pDepthMarketData.getOpenInterest())
-                .append("PreSettlementPrice", pDepthMarketData.getPreSettlementPrice())
-                .append("SettlementPrice", pDepthMarketData.getSettlementPrice())
-                .append("AskPrice1", pDepthMarketData.getAskPrice1())
-                .append("AskPrice2", pDepthMarketData.getAskPrice2())
-                .append("AskPrice3", pDepthMarketData.getAskPrice3())
-                .append("AskPrice4", pDepthMarketData.getAskPrice4())
-                .append("AskPrice5", pDepthMarketData.getAskPrice5())
-                .append("AskVolume1", pDepthMarketData.getAskVolume1())
-                .append("AskVolume2", pDepthMarketData.getAskVolume2())
-                .append("AskVolume3", pDepthMarketData.getAskVolume3())
-                .append("AskVolume4", pDepthMarketData.getAskVolume4())
-                .append("AskVolume5", pDepthMarketData.getAskVolume5())
-                .append("BidPrice1", pDepthMarketData.getBidPrice1())
-                .append("BidPrice2", pDepthMarketData.getBidPrice2())
-                .append("BidPrice3", pDepthMarketData.getBidPrice3())
-                .append("BidPrice4", pDepthMarketData.getBidPrice4())
-                .append("BidPrice5", pDepthMarketData.getBidPrice5())
-                .append("BidVolume1", pDepthMarketData.getBidVolume1())
-                .append("BidVolume2", pDepthMarketData.getBidVolume2())
-                .append("BidVolume3", pDepthMarketData.getBidVolume3())
-                .append("BidVolume4", pDepthMarketData.getBidVolume4())
-                .append("BidVolume5", pDepthMarketData.getBidVolume5())
-                .toString();
+                    .append("InstrumentID", pDepthMarketData.getInstrumentID())
+                    .append("ExchangeID", pDepthMarketData.getExchangeID())
+                    .append("ExchangeInstID", pDepthMarketData.getExchangeInstID())
+                    .append("ActionDay", pDepthMarketData.getActionDay())
+                    .append("TradingDay", pDepthMarketData.getTradingDay())
+                    .append("UpdateTime", pDepthMarketData.getUpdateTime())
+                    .append("UpdateMillisec", pDepthMarketData.getUpdateMillisec())
+                    .append("LastPrice", pDepthMarketData.getLastPrice())
+                    .append("OpenPrice", pDepthMarketData.getOpenPrice())
+                    .append("ClosePrice", pDepthMarketData.getClosePrice())
+                    .append("PreClosePrice", pDepthMarketData.getPreClosePrice())
+                    .append("HighestPrice", pDepthMarketData.getHighestPrice())
+                    .append("LowestPrice", pDepthMarketData.getLowestPrice())
+                    .append("AveragePrice", pDepthMarketData.getAveragePrice())
+                    .append("Turnover", pDepthMarketData.getTurnover()).append("Volume", pDepthMarketData.getVolume())
+                    .append("UpperLimitPrice", pDepthMarketData.getUpperLimitPrice())
+                    .append("LowerLimitPrice", pDepthMarketData.getLowerLimitPrice())
+                    .append("PreDelta", pDepthMarketData.getPreDelta())
+                    .append("CurrDelta", pDepthMarketData.getCurrDelta())
+                    .append("PreOpenInterest", pDepthMarketData.getPreOpenInterest())
+                    .append("OpenInterest", pDepthMarketData.getOpenInterest())
+                    .append("PreSettlementPrice", pDepthMarketData.getPreSettlementPrice())
+                    .append("SettlementPrice", pDepthMarketData.getSettlementPrice())
+                    .append("AskPrice1", pDepthMarketData.getAskPrice1())
+                    .append("AskPrice2", pDepthMarketData.getAskPrice2())
+                    .append("AskPrice3", pDepthMarketData.getAskPrice3())
+                    .append("AskPrice4", pDepthMarketData.getAskPrice4())
+                    .append("AskPrice5", pDepthMarketData.getAskPrice5())
+                    .append("AskVolume1", pDepthMarketData.getAskVolume1())
+                    .append("AskVolume2", pDepthMarketData.getAskVolume2())
+                    .append("AskVolume3", pDepthMarketData.getAskVolume3())
+                    .append("AskVolume4", pDepthMarketData.getAskVolume4())
+                    .append("AskVolume5", pDepthMarketData.getAskVolume5())
+                    .append("BidPrice1", pDepthMarketData.getBidPrice1())
+                    .append("BidPrice2", pDepthMarketData.getBidPrice2())
+                    .append("BidPrice3", pDepthMarketData.getBidPrice3())
+                    .append("BidPrice4", pDepthMarketData.getBidPrice4())
+                    .append("BidPrice5", pDepthMarketData.getBidPrice5())
+                    .append("BidVolume1", pDepthMarketData.getBidVolume1())
+                    .append("BidVolume2", pDepthMarketData.getBidVolume2())
+                    .append("BidVolume3", pDepthMarketData.getBidVolume3())
+                    .append("BidVolume4", pDepthMarketData.getBidVolume4())
+                    .append("BidVolume5", pDepthMarketData.getBidVolume5()).toString();
             log.trace("marketData {}", marketData);
         }
     }
