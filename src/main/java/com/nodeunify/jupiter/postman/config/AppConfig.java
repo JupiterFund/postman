@@ -5,8 +5,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.Range;
 import com.ulisesbocchio.jasyptspringboot.annotation.EnableEncryptableProperties;
 
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,6 +34,7 @@ public class AppConfig {
     public static class SourceConfig {
         private GTAConfig gta = new GTAConfig();
         private TDFConfig tdf = new TDFConfig();
+        private CTPConfig ctp = new CTPConfig();
     }
 
     @Data
@@ -58,6 +63,34 @@ public class AppConfig {
         private String markets;
         private String subscriptions = "";
         private Map<String, String> proxy = new HashMap<>();
+    }
+
+    @Data
+    public static class CTPConfig {
+        private List<String> tradingHours;
+        
+        /**
+         * 解析盘中时段
+         */
+        public List<Range<Integer>> getTimeRanges() {
+            final DateTimeFormatter parser = DateTimeFormat.forPattern("HH:mm");
+            List<Range<Integer>> timeRanges = new ArrayList<>();
+            for (String tradingHour : this.tradingHours) {
+                if (tradingHour.contains("-")) {
+                    String[] parts = tradingHour.split("-");
+                    DateTime startTime = DateTime.parse(parts[0], parser);
+                    DateTime endTime = DateTime.parse(parts[1], parser);
+                    if (startTime.isAfter(endTime)) {
+                        // 夜盘跨日时间段
+                        timeRanges.add(Range.atLeast(startTime.getMillisOfDay()));
+                        timeRanges.add(Range.lessThan(endTime.getMillisOfDay()));
+                    } else {
+                        timeRanges.add(Range.closedOpen(startTime.getMillisOfDay(), endTime.getMillisOfDay()));
+                    }
+                }
+            }
+            return timeRanges;
+        }
     }
 
     @Data

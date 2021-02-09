@@ -1,6 +1,5 @@
 package com.nodeunify.jupiter.postman.source;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -53,9 +52,7 @@ public class CTPSource implements ISource {
 
     private static final Logger latencyLogger = LoggerFactory.getLogger("LatencyLogger");
     private static final DateTimeFormatter printer = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    private static final DateTimeFormatter parser = DateTimeFormat.forPattern("HH:mm");
     private Set<String> queryUUIDs = Sets.newConcurrentHashSet();
-    private List<Range<Integer>> timeRanges = new ArrayList<>();
 
     private CThostFtdcMdApi mdApi;
     private MdSpiImpl mdSpiImpl;
@@ -78,8 +75,8 @@ public class CTPSource implements ISource {
     private String password;
     @Value("${app.connect.source.ctp.subscriptions:}#{T(java.util.Collections).emptyList()}")
     private List<String> subscriptions;
-    @Value("${app.connect.source.ctp.trading-hours:}#{T(java.util.Collections).emptyList()}")
-    private List<String> tradingHours;
+    @Value("#{appConfig.getConnect().getSource().getCtp().getTimeRanges()}")
+    private List<Range<Integer>> timeRanges;
 
     static {
         System.loadLibrary("thostmduserapi_se");
@@ -169,7 +166,7 @@ public class CTPSource implements ISource {
             if (pRspInfo != null) {
                 log.debug("OnRspUserLogin, ErrorMsg {}", pRspInfo.getErrorMsg());
             }
-            parseTimeRanges();
+            log.debug("Time ranges: {}", timeRanges);
             if (subscriptions.isEmpty()) {
                 log.debug("Start instrumentListener");
                 registry.getListenerContainer("instrumentListener").start();
@@ -217,44 +214,6 @@ public class CTPSource implements ISource {
                     }
                 }
             }
-        }
-
-        /**
-         * 解析盘中时段
-         */
-        private void parseTimeRanges() {
-            for (String tradingHour : tradingHours) {
-                if (tradingHour.contains("-")) {
-                    String[] parts = tradingHour.split("-");
-                    DateTime startTime = DateTime.parse(parts[0], parser);
-                    DateTime endTime = DateTime.parse(parts[1], parser);
-                    if (startTime.isAfter(endTime)) {
-                        // 夜盘跨日时间段
-                        timeRanges.add(Range.atLeast(startTime.getMillisOfDay()));
-                        timeRanges.add(Range.lessThan(endTime.getMillisOfDay()));
-                    } else {
-                        timeRanges.add(Range.closedOpen(startTime.getMillisOfDay(), endTime.getMillisOfDay()));
-                    }
-                }
-            }
-            log.debug("Time ranges: {}", timeRanges);
-
-            // 另一种解析方式，早期代码
-            // timeRanges = tradingHours.stream()
-            // .filter(tradingHour -> tradingHour.contains("-"))
-            // .map(tradingHour -> {
-            // String[] parts = tradingHour.split("-");
-            // DateTime startTime = DateTime.parse(parts[0],
-            // parser).withDate(LocalDate.now());
-            // DateTime endTime = DateTime.parse(parts[1],
-            // parser).withDate(LocalDate.now());
-            // if (startTime.isAfter(endTime)) {
-            // endTime = endTime.plusDays(1);
-            // }
-            // log.debug("Trading hours of market: {}, {}", startTime, endTime);
-            // return Range.openClosed(startTime.getMillis(), endTime.getMillis());
-            // })
-            // .collect(Collectors.toList());
         }
 
         /**
