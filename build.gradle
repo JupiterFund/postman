@@ -9,7 +9,7 @@ plugins {
 apply plugin: 'java'
 apply plugin: 'io.spring.dependency-management'
 
-version = '0.3.2'
+version = '0.4.0'
 
 compileJava.options.encoding = 'UTF-8' 
 compileTestJava.options.encoding = 'UTF-8'
@@ -55,7 +55,7 @@ dependencies {
   implementation 'com.github.JupiterFund:jupiter-commons:master-SNAPSHOT'
   implementation 'com.github.JupiterFund:jupiterapis:master-SNAPSHOT'
   implementation 'com.github.JupiterFund:tdfapi:v1.2.0:all'
-  implementation 'com.github.JupiterFund:qtsapi:v2.6.0:all'
+  implementation 'com.github.JupiterFund:qtsapi:v3.13.1:all'
   implementation 'com.github.JupiterFund:ctpapi:v6.3.15:all'
 
   // 测试依赖
